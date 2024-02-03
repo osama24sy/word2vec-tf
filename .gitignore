@@ -1,0 +1,10 @@
+data/demo.ipynb
+logs
+old
+out
+demo.ipynb
+GoogleNews-vectors-negative300.bin
+metadata.tsv
+vectors.tsv
+SAModel.py
+__pycache__
