@@ -1,6 +1,5 @@
 import io
 import numpy as np
-from SAModel import AttentionModel
 import tensorflow as tf
 
 def save_embeddings(vocab, weights):
@@ -69,16 +68,3 @@ def similar_words(word_vectors, target_word, n=5):
     sorted_similarities = sorted(similarities.items(), key=lambda item: item[1], reverse=True)
     return sorted_similarities[:n]
 
-def next_word(sentence, embeddings) :
-    words = sentence.lower().split()
-
-    context = [embeddings[word] for word in words[:-1]]
-    query = embeddings[words[-1]]
-
-    input_dim = len(context)
-    model = AttentionModel(input_dim)
-
-    input_data = tf.stack([context, query], axis=0)
-    output = model(input_data)
-    
-    return context, query
