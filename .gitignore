@@ -8,3 +8,5 @@ metadata.tsv
 vectors.tsv
 SAModel.py
 __pycache__
+data/new_text8.txt
+data/text8.txt

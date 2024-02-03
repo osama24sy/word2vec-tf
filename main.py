@@ -9,18 +9,18 @@ from model import Word2Vec
 from embeddings import save_embeddings
 
 # HYPERPARAMETERS
-VOCAB_SIZE = 10000
-SEQ_LEN = 25
-WINDOW_SIZE = 2
-NEG_SAMP = 4
+VOCAB_SIZE = 15000
+SEQ_LEN = 20
+WINDOW_SIZE = 3
+NEG_SAMP = 3
 SEED = 42
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 BUFFER_SIZE = 1000
-EMBEDDING_DIM = 150
+EMBEDDING_DIM = 300
 
 # Prepare The dataset
 sequences, vocab = load_data(
-    path="data/tales.txt",
+    path="data/new_text8.txt",
     max_vocab=VOCAB_SIZE,
     seq_len=SEQ_LEN,
     batch_size=BATCH_SIZE
@@ -63,7 +63,7 @@ word2vec.compile(
 
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs")
 
-word2vec.fit(dataset, epochs=10, callbacks=[tensorboard_callback])
+word2vec.fit(dataset, epochs=15, callbacks=[tensorboard_callback])
 
 weights = word2vec.get_layer('w2v_embedding').get_weights()[0]
 
