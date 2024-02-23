@@ -8,7 +8,15 @@ import nltk
 nltk.download('stopwords')
 nltk.download('punkt')
 
-def next_word(sentence, embeddings, topn=10) :
+def next_word_avg(sentence, embeddings, topn=10) :
+  tokens = word_tokenize(sentence.lower())
+  sequence = np.array([embeddings.wv[word] for word in tokens])
+  print(sequence.shape)
+  avg = np.sum(sequence, axis=0) / sequence.shape[0]
+  output = embeddings.wv.most_similar(positive=[avg], topn=topn)
+  return output
+
+def next_word_basic(sentence, embeddings, topn=10) :
     tokens = word_tokenize(sentence.lower())
     stop_words = stopwords.words('english')
     words = [token for token in tokens if token not in stop_words]
@@ -35,3 +43,17 @@ def next_word(sentence, embeddings, topn=10) :
     output = embeddings.most_similar(positive=[last.numpy()], topn=topn)
 
     return output
+
+def next_word(sent, embeddings, model, k = 1):
+    tokens = word_tokenize(sent.lower())
+    stop_words = stopwords.words('english')
+    words = [token for token in tokens if token not in stop_words]
+    context = tf.constant([embeddings.wv[word] for word in words])
+    context = tf.expand_dims(context, axis=0)
+    logits = model(context)
+    print(logits[:, -1, 0])
+    # lm_head = tf.nn.softmax(logits, axis = -1)
+    # TODO: Random sampling for word selection
+    results = tf.math.top_k(logits[:, -1, :], k).indices.numpy()
+    # return results[-1]
+    return [embeddings.wv.index_to_key[result] for result in results[-1]]

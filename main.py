@@ -1,70 +1,84 @@
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+from gensim.models import KeyedVectors
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
-from setup_data import load_data
-from generate_training_data import generate_training_data_tf
-from model import Word2Vec
-from embeddings import save_embeddings
+from attention import NextWord
 
-# HYPERPARAMETERS
-VOCAB_SIZE = 15000
-SEQ_LEN = 20
-WINDOW_SIZE = 3
-NEG_SAMP = 3
-SEED = 42
-BATCH_SIZE = 1024
-BUFFER_SIZE = 1000
-EMBEDDING_DIM = 300
+from next_word import next_word, next_word_avg, next_word_basic
 
-# Prepare The dataset
-sequences, vocab = load_data(
-    path="data/new_text8.txt",
-    max_vocab=VOCAB_SIZE,
-    seq_len=SEQ_LEN,
-    batch_size=BATCH_SIZE
-)
 
-targets, contexts, labels = generate_training_data_tf(
-    sequences=sequences,
-    window_size=WINDOW_SIZE,
-    num_ns=NEG_SAMP,
-    vocab_size=VOCAB_SIZE,
-    seed=SEED
-)
+# Load the model from the .model file
+embeddings = KeyedVectors.load("/content/drive/MyDrive/NLP Projects/text8_word2vec.model")
+vocab_size = len(embeddings.wv.index_to_key)
+word_embeddings = tf.zeros((vocab_size, 100)).numpy()
 
-targets = np.array(targets)
-contexts = np.array(contexts)
-labels = np.array(labels)
+# Fill the tensor by accessing word vectors
+for i, word in enumerate(embeddings.wv.index_to_key):
+    embedding = embeddings.wv[word]
+    word_embeddings[i] = embedding
 
-print('\n')
-print(f"targets.shape: {targets.shape}")
-print(f"contexts.shape: {contexts.shape}")
-print(f"labels.shape: {labels.shape}")
+word_embeddings = tf.convert_to_tensor(word_embeddings)
 
-dataset = tf.data.Dataset.from_tensor_slices(((targets, contexts), labels))
-dataset = (
-    dataset
-    .shuffle(BUFFER_SIZE)
-    .batch(BATCH_SIZE, drop_remainder=True)
-    .cache()
-    .prefetch(buffer_size=tf.data.AUTOTUNE)
-)
+print(next_word_avg("The oldest city in the world is", embeddings))
+print(next_word_basic("The oldest city in the world is", embeddings=embeddings, topn=5))
 
-print(dataset)
+# Generate training data
+import gensim.downloader as api
 
-word2vec = Word2Vec(VOCAB_SIZE, EMBEDDING_DIM, NEG_SAMP)
-word2vec.compile(
+data = api.load("text8")
+dataset = []
+labels = []
+i = 0
+for line in data:
+  sequences = np.array_split(line, 625)
+  for seq in sequences:
+    tok = []
+    lab = []
+    for word in seq:
+      try:
+        tok.append(embeddings.wv[word])
+        lab.append(embeddings.wv.key_to_index[word])
+      except:
+        tok = []
+        break
+    # print(tok)
+    if len(tok) != 0:
+      dataset.append(tok[:-1])
+      labels.append(lab[1:]) # make indices
+  i += 1
+  if i == 100: break
+dataset = tf.constant(dataset)
+labels = tf.constant(labels)
+
+# Create the model
+model = NextWord(71290, 100, word_embeddings)
+
+model.compile(
     optimizer='adam',
-    loss=keras.losses.CategoricalCrossentropy(from_logits=True),
+    loss='sparse_categorical_crossentropy',
     metrics=['accuracy']
 )
 
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs")
+history = model.fit(
+    x=dataset,
+    y=labels,
+    epochs=5, 
+    batch_size=512,  
+)
 
-word2vec.fit(dataset, epochs=15, callbacks=[tensorboard_callback])
+# Plot the training history
+import matplotlib.pyplot as plt
 
-weights = word2vec.get_layer('w2v_embedding').get_weights()[0]
+plt.plot(history.history['loss'])
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Model Loss')
+plt.show()
 
-save_embeddings(vocab, weights)
+# Test the model
+print(next_word("The oldest city in the world is",
+          embeddings,
+          model, k = 15))
+
+# Save the model
+model.save("attention.keras")
